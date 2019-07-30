@@ -25,7 +25,7 @@ func init() {
 	com = flag.String("c", "", "COM port to use")
 	library = flag.String("l", "huin", "Library to use")
 	text = flag.String("t", "Hello!", "Text to transmit")
-	baud = flag.Int("b", 115200, "Baud rate")
+	baud = flag.Int("b", 19200, "Baud rate")
 	readTimeout = flag.Int("rt", 1, "READ timeout")
 }
 
@@ -39,7 +39,7 @@ func run() error {
 
 	var err error
 
-	switch (*library) {
+	switch *library {
 	case serialinterface.JACOBSA_INTERFACE:
 		serialIf, err = serialinterface.NewJacobsaProvider(*com, *baud, *readTimeout)
 	case serialinterface.TARM_INTERFACE:
@@ -49,7 +49,7 @@ func run() error {
 	default:
 		return fmt.Errorf("unknown library: %s", *library)
 	}
-	fmt.Printf("after init %v\n",err)
+	fmt.Printf("after init %v\n", err)
 
 	if err != nil {
 		return err
@@ -64,7 +64,7 @@ func run() error {
 	}()
 	fmt.Printf("after defer")
 
-	switch (strings.ToUpper(*mode)) {
+	switch strings.ToUpper(*mode) {
 	case "READ":
 		fmt.Printf("read")
 		err = read()
