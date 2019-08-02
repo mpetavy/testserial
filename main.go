@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 	"testserial/serialinterface"
+	"time"
 )
 
 var (
@@ -23,7 +24,7 @@ var (
 func init() {
 	mode = flag.String("m", "", "Operation mode READ/WRITE")
 	com = flag.String("c", "", "COM port to use")
-	library = flag.String("l", "huin", "Library to use")
+	library = flag.String("l", "jacobsa", "Library to use")
 	text = flag.String("t", "Hello!", "Text to transmit")
 	baud = flag.Int("b", 19200, "Baud rate")
 	readTimeout = flag.Int("rt", 1, "READ timeout")
@@ -38,22 +39,34 @@ func run() error {
 	}
 
 	var err error
+	var i int
 
-	switch *library {
-	case serialinterface.JACOBSA_INTERFACE:
-		serialIf, err = serialinterface.NewJacobsaProvider(*com, *baud, *readTimeout)
-	case serialinterface.TARM_INTERFACE:
-		serialIf, err = serialinterface.NewTarmProvider(*com, *baud, *readTimeout)
-	case serialinterface.HUIN_INTERFACE:
-		serialIf, err = serialinterface.NewHuinInterface(*com, *baud, *readTimeout)
-	default:
-		return fmt.Errorf("unknown library: %s", *library)
+	for i = 0; i < 20; i++ {
+		switch *library {
+		case serialinterface.JACOBSA_INTERFACE:
+			serialIf, err = serialinterface.NewJacobsaProvider(*com, *baud, *readTimeout)
+		case serialinterface.TARM_INTERFACE:
+			serialIf, err = serialinterface.NewTarmProvider(*com, *baud, *readTimeout)
+		case serialinterface.HUIN_INTERFACE:
+			serialIf, err = serialinterface.NewHuinInterface(*com, *baud, *readTimeout)
+		default:
+			return fmt.Errorf("unknown library: %s", *library)
+		}
+
+		if err != nil {
+			time.Sleep(time.Millisecond * 100)
+		} else {
+			break
+		}
 	}
+
 	fmt.Printf("after init %v\n", err)
 
 	if err != nil {
 		return err
 	}
+
+	fmt.Printf("succeeded to open after %d tries\n", i)
 
 	defer func() {
 		fmt.Printf("defer")
