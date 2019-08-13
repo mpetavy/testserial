@@ -3,31 +3,29 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"strings"
-	"testserial/serialinterface"
 	"time"
+
+	"github.com/jacobsa/go-serial/serial"
 )
 
 var (
-	mode        *string
-	text        *string
-	com         *string
-	library     *string
-	baud        *int
-	readTimeout *int
-
-	serialIf serialinterface.Provider
+	mode    *string
+	text    *string
+	com     *string
+	library *string
+	baud    *int
+	jacobsa io.ReadWriteCloser
 )
 
 func init() {
 	mode = flag.String("m", "", "Operation mode READ/WRITE")
 	com = flag.String("c", "", "COM port to use")
-	library = flag.String("l", "jacobsa", "Library to use")
 	text = flag.String("t", "Hello!", "Text to transmit")
-	baud = flag.Int("b", 19200, "Baud rate")
-	readTimeout = flag.Int("rt", 1, "READ timeout")
+	baud = flag.Int("b", 9600, "Baud rate")
 }
 
 func run() error {
@@ -41,17 +39,26 @@ func run() error {
 	var err error
 	var i int
 
+	options := serial.OpenOptions{
+		PortName:                *com,
+		BaudRate:                uint(*baud),
+		DataBits:                8,
+		StopBits:                1,
+		ParityMode:              0,
+		RTSCTSFlowControl:       false,
+		InterCharacterTimeout:   0,
+		MinimumReadSize:         0,
+		Rs485Enable:             false,
+		Rs485RtsHighDuringSend:  false,
+		Rs485RtsHighAfterSend:   false,
+		Rs485RxDuringTx:         false,
+		Rs485DelayRtsBeforeSend: 0,
+		Rs485DelayRtsAfterSend:  0,
+	}
+
 	for i = 0; i < 20; i++ {
-		switch *library {
-		case serialinterface.JACOBSA_INTERFACE:
-			serialIf, err = serialinterface.NewJacobsaProvider(*com, *baud, *readTimeout)
-		case serialinterface.TARM_INTERFACE:
-			serialIf, err = serialinterface.NewTarmProvider(*com, *baud, *readTimeout)
-		case serialinterface.HUIN_INTERFACE:
-			serialIf, err = serialinterface.NewHuinInterface(*com, *baud, *readTimeout)
-		default:
-			return fmt.Errorf("unknown library: %s", *library)
-		}
+		log.Printf("try #%d to open %s ...")
+		jacobsa, err = serial.Open(options)
 
 		if err != nil {
 			time.Sleep(time.Millisecond * 100)
@@ -60,32 +67,30 @@ func run() error {
 		}
 	}
 
-	fmt.Printf("after init %v\n", err)
+	log.Printf("open successfull after %d tries")
 
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("succeeded to open after %d tries\n", i)
+	log.Printf("succeeded to open after %d tries\n", i)
 
 	defer func() {
-		fmt.Printf("defer")
-		err := serialIf.Close()
+		err := jacobsa.Close()
 		if err != nil {
 			log.Fatal(err)
 		}
 	}()
-	fmt.Printf("after defer")
 
 	switch strings.ToUpper(*mode) {
 	case "READ":
-		fmt.Printf("read")
+		log.Printf("read")
 		err = read()
 	case "WRITE":
-		fmt.Printf("write")
+		log.Printf("write")
 		err = write()
 	default:
-		return fmt.Errorf("unknown mode: %s", *library)
+		return fmt.Errorf("unknown mode: %s", *mode)
 	}
 
 	return nil
@@ -100,7 +105,7 @@ func read() error {
 
 	buf := make([]byte, 128)
 	for {
-		n, err = serialIf.Read(buf)
+		n, err = jacobsa.Read(buf)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -114,8 +119,6 @@ func read() error {
 		}
 	}
 
-	log.Printf("%d bytes read", a)
-
 	return nil
 
 }
@@ -125,7 +128,7 @@ func write() error {
 
 	var err error
 
-	_, err = serialIf.Write([]byte(*text))
+	_, err = jacobsa.Write([]byte(*text))
 
 	return err
 }
