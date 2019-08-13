@@ -15,7 +15,7 @@ import (
 var (
 	mode    *string
 	text    *string
-	com     *string
+	comport *string
 	library *string
 	baud    *int
 	jacobsa io.ReadWriteCloser
@@ -23,7 +23,7 @@ var (
 
 func init() {
 	mode = flag.String("m", "", "Operation mode READ/WRITE")
-	com = flag.String("c", "", "COM port to use")
+	comport = flag.String("c", "", "COM port to use")
 	text = flag.String("t", "Hello!", "Text to transmit")
 	baud = flag.Int("b", 9600, "Baud rate")
 }
@@ -40,7 +40,7 @@ func run() error {
 	var i int
 
 	options := serial.OpenOptions{
-		PortName:                *com,
+		PortName:                *comport,
 		BaudRate:                uint(*baud),
 		DataBits:                8,
 		StopBits:                1,
@@ -57,7 +57,7 @@ func run() error {
 	}
 
 	for i = 0; i < 20; i++ {
-		log.Printf("try #%d to open %s ...")
+		log.Printf("try #%d to open %s ...", i, *comport)
 		jacobsa, err = serial.Open(options)
 
 		if err != nil {
@@ -67,13 +67,11 @@ func run() error {
 		}
 	}
 
-	log.Printf("open successfull after %d tries")
-
 	if err != nil {
 		return err
 	}
 
-	log.Printf("succeeded to open after %d tries\n", i)
+	log.Printf("open successfull after %d tries", i)
 
 	defer func() {
 		err := jacobsa.Close()
