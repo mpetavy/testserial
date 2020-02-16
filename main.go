@@ -40,14 +40,15 @@ func run() error {
 	var i int
 
 	options := serial.OpenOptions{
-		PortName:                *comport,
-		BaudRate:                uint(*baud),
-		DataBits:                8,
-		StopBits:                1,
-		ParityMode:              0,
-		RTSCTSFlowControl:       false,
+		PortName:          *comport,
+		BaudRate:          uint(*baud),
+		DataBits:          8,
+		StopBits:          1,
+		ParityMode:        0,
+		RTSCTSFlowControl: false,
+
 		InterCharacterTimeout:   0,
-		MinimumReadSize:         0,
+		MinimumReadSize:         1,
 		Rs485Enable:             false,
 		Rs485RtsHighDuringSend:  false,
 		Rs485RtsHighAfterSend:   false,
