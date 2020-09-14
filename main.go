@@ -3,138 +3,135 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io"
-	"log"
-	"os"
-	"strings"
+	"github.com/mpetavy/common"
+	"go.bug.st/serial"
+	"io/ioutil"
 	"time"
-
-	"github.com/jacobsa/go-serial/serial"
 )
 
 var (
-	mode    *string
-	text    *string
-	comport *string
-	library *string
-	baud    *int
-	jacobsa io.ReadWriteCloser
+	readMode *bool
+	text     *string
+	comport  *string
+	fileName *string
+	baud     *int
 )
 
 func init() {
-	mode = flag.String("m", "", "Operation mode READ/WRITE")
+	common.Init(false, "0.0.0", "2018", "test", "mpetavy", fmt.Sprintf("https://github.com/mpetavy/%s", common.Title()), common.APACHE, nil, nil, run, 0)
+
+	readMode = flag.Bool("r", false, "Operation mode READ/WRITE")
 	comport = flag.String("c", "", "COM port to use")
 	text = flag.String("t", "Hello!", "Text to transmit")
 	baud = flag.Int("b", 9600, "Baud rate")
+	fileName = flag.String("f", "", "File to transmit")
 }
 
 func run() error {
-	flag.Parse()
-
-	if *mode == "" {
-		flag.Usage()
-		os.Exit(0)
+	ports, err := serial.GetPortsList()
+	if common.Error(err) {
+		return err
+	}
+	if len(ports) == 0 {
+		return fmt.Errorf("No serial ports found!")
+	}
+	// Print the list of detected ports
+	for _, port := range ports {
+		fmt.Printf("Found port: %v\n", port)
 	}
 
-	var err error
-	var i int
-
-	options := serial.OpenOptions{
-		PortName:          *comport,
-		BaudRate:          uint(*baud),
-		DataBits:          8,
-		StopBits:          1,
-		ParityMode:        0,
-		RTSCTSFlowControl: false,
-
-		InterCharacterTimeout:   0,
-		MinimumReadSize:         1,
-		Rs485Enable:             false,
-		Rs485RtsHighDuringSend:  false,
-		Rs485RtsHighAfterSend:   false,
-		Rs485RxDuringTx:         false,
-		Rs485DelayRtsBeforeSend: 0,
-		Rs485DelayRtsAfterSend:  0,
+	options := &serial.Mode{
+		BaudRate: *baud,
+		Parity:   serial.NoParity,
+		DataBits: 8,
+		StopBits: serial.OneStopBit,
 	}
 
-	for i = 0; i < 20; i++ {
-		log.Printf("try #%d to open %s ...", i, *comport)
-		jacobsa, err = serial.Open(options)
-
-		if err != nil {
-			time.Sleep(time.Millisecond * 100)
-		} else {
-			break
-		}
-	}
-
-	if err != nil {
+	port, err := serial.Open(*comport, options)
+	if common.Error(err) {
 		return err
 	}
 
-	log.Printf("open successfull after %d tries", i)
-
 	defer func() {
-		err := jacobsa.Close()
-		if err != nil {
-			log.Fatal(err)
-		}
+		common.Error(port.Close())
 	}()
 
-	switch strings.ToUpper(*mode) {
-	case "READ":
-		log.Printf("read")
-		err = read()
-	case "WRITE":
-		log.Printf("write")
-		err = write()
-	default:
-		return fmt.Errorf("unknown mode: %s", *mode)
+	if *readMode {
+		common.Info("read")
+		err = read(port)
+	} else {
+		common.Info("write")
+		err = write(port)
 	}
-
-	return nil
-}
-
-func read() error {
-	log.Printf("Reading ...\n")
-
-	var err error
-	var n int
-	var a int
-
-	buf := make([]byte, 128)
-	for {
-		n, err = jacobsa.Read(buf)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		if n > 0 {
-			a += n
-
-			fmt.Printf("%s", string(buf[:n]))
-		} else {
-			fmt.Printf(".")
-		}
-	}
-
-	return nil
-
-}
-
-func write() error {
-	log.Printf("Printing ...\n")
-
-	var err error
-
-	_, err = jacobsa.Write([]byte(*text))
 
 	return err
 }
 
-func main() {
-	err := run()
-	if err != nil {
-		panic(err)
+func read(port serial.Port) error {
+	common.Info("Reading ...\n")
+
+	var err error
+	var n int
+
+	timer := time.NewTimer(time.Second * 1)
+	timer.Stop()
+
+	go func() {
+		buf := make([]byte, 128)
+
+		for {
+			n, err = port.Read(buf)
+
+			timer.Stop()
+
+			portError, ok := err.(*serial.PortError)
+			if ok && portError.Code() == serial.PortClosed {
+				return
+			}
+
+			if common.Error(err) {
+				return
+			}
+
+			fmt.Printf("%s", string(buf[:n]))
+
+			timer.Reset(time.Second * 1)
+		}
+	}()
+
+	for {
+		<-timer.C
+		common.Error(port.Close())
+		break
 	}
+
+	return nil
+}
+
+func write(port serial.Port) error {
+	common.Info("Printing ...\n")
+
+	var err error
+
+	if *fileName != "" {
+		ba, err := ioutil.ReadFile(*fileName)
+		if common.Error(err) {
+			return err
+		}
+
+		*text = string(ba)
+	}
+
+	_, err = port.Write([]byte(*text))
+	if common.Error(err) {
+		return err
+	}
+
+	return nil
+}
+
+func main() {
+	defer common.Done()
+
+	common.Run([]string{"c"})
 }
