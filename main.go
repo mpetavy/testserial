@@ -6,7 +6,6 @@ import (
 	"github.com/mpetavy/common"
 	"go.bug.st/serial"
 	"io/ioutil"
-	"time"
 )
 
 var (
@@ -73,36 +72,21 @@ func read(port serial.Port) error {
 	var err error
 	var n int
 
-	timer := time.NewTimer(time.Second * 1)
-	timer.Stop()
-
-	go func() {
-		buf := make([]byte, 128)
-
-		for {
-			n, err = port.Read(buf)
-
-			timer.Stop()
-
-			portError, ok := err.(*serial.PortError)
-			if ok && portError.Code() == serial.PortClosed {
-				return
-			}
-
-			if common.Error(err) {
-				return
-			}
-
-			fmt.Printf("%s", string(buf[:n]))
-
-			timer.Reset(time.Second * 1)
-		}
-	}()
+	buf := make([]byte, 128)
 
 	for {
-		<-timer.C
-		common.Error(port.Close())
-		break
+		n, err = port.Read(buf)
+
+		portError, ok := err.(*serial.PortError)
+		if ok && portError.Code() == serial.PortClosed {
+			return nil
+		}
+
+		if common.Error(err) {
+			return nil
+		}
+
+		fmt.Printf("%s", string(buf[:n]))
 	}
 
 	return nil
