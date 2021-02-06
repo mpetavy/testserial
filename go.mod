@@ -7,4 +7,4 @@ require (
 	go.bug.st/serial v1.1.1
 )
 
-// replace github.com/mpetavy/common => ../common
+replace github.com/mpetavy/common => ../common
