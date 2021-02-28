@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/mpetavy/common"
 	"go.bug.st/serial"
-	"io/ioutil"
+	"os"
 )
 
 var (
@@ -96,7 +96,7 @@ func write(port serial.Port) error {
 	var err error
 
 	if *fileName != "" {
-		ba, err := ioutil.ReadFile(*fileName)
+		ba, err := os.ReadFile(*fileName)
 		if common.Error(err) {
 			return err
 		}
