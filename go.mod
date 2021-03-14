@@ -3,7 +3,7 @@ module testserial
 go 1.16
 
 require (
-	github.com/mpetavy/common v1.1.95
+	github.com/mpetavy/common v1.1.96
 	go.bug.st/serial v1.1.3
 )
 
